@@ -6,26 +6,108 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 
+// const getAllVideos = asyncHandler(async (req, res) => {
+//   const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
+//   //TODO: get all videos based on query, sort, pagination
+//   const videos = await Video.find();
+
+//   // console.log(req.user._id);
+//   // console.log(req.query);
+//   // console.log(query);
+//   // console.log(sortBy);
+//   // console.log(userId);
+
+//   return res
+//     .status(200)
+//     .json(new ApiResponse(200, videos, "get all videos successfullly "));
+// });
+
+// Testing code
 const getAllVideos = asyncHandler(async (req, res) => {
-  const { page = 1, limit = 10, query, sortBy, sortType, userId } = req.query;
-  //TODO: get all videos based on query, sort, pagination
-  const videos = await Video.find();
+  const {
+    page = 1,
+    limit = 10,
+    query,
+    sortBy = "createdAt",
+    sortType = "desc",
+    userId,
+  } = req.query;
 
-  // console.log(req.user._id);
-  // console.log(req.query);
-  // console.log(query);
-  // console.log(sortBy);
-  // console.log(userId);
+  // Convert page and limit to integers
+  const pageNum = parseInt(page, 10);
+  const limitNum = parseInt(limit, 10);
 
-  return res
-    .status(200)
-    .json(new ApiResponse(200, videos, "get all videos successfullly "));
+  // Validate page and limit
+  if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
+    throw new ApiError(400, "Invalid pagination parameters");
+  }
+
+  // Build the aggregation pipeline
+  const pipeline = [];
+
+  // Match based on search query
+  if (query) {
+    pipeline.push({
+      $match: {
+        $or: [
+          { title: { $regex: query, $options: "i" } },
+          { description: { $regex: query, $options: "i" } },
+        ],
+      },
+    });
+  }
+
+  // Match based on userId
+  if (userId) {
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      throw new ApiError(400, "Invalid user ID");
+    }
+    pipeline.push({
+      $match: {
+        owner: new mongoose.Types.ObjectId(userId),
+      },
+    });
+  }
+
+  // Sort
+  const sortOptions = {};
+  sortOptions[sortBy] = sortType === "asc" ? 1 : -1;
+  pipeline.push({ $sort: sortOptions });
+
+  // Pagination
+  pipeline.push(
+    {
+      $skip: (pageNum - 1) * limitNum,
+    },
+    {
+      $limit: limitNum,
+    }
+  );
+
+  // Execute the aggregate paginate
+  try {
+    const aggregateQuery = Video.aggregate(pipeline);
+    const options = {
+      page: pageNum,
+      limit: limitNum,
+    };
+
+    const videos = await Video.aggregatePaginate(aggregateQuery, options);
+
+    return res
+      .status(200)
+      .json(new ApiResponse(200, videos, "Videos retrieved successfully"));
+  } catch (error) {
+    console.error("Error fetching videos:", error);
+    throw new ApiError(500, "Server error");
+  }
 });
 
 const publishAVideo = asyncHandler(async (req, res) => {
   const { title, description } = req.body;
 
   console.log(title);
+  console.log(description);
 
   // TODO: get video, upload to cloudinary, create video
   if ([title, description].some((field) => field?.trim() === "")) {
@@ -55,6 +137,7 @@ const publishAVideo = asyncHandler(async (req, res) => {
     thumbnail: thumbnailfile.url,
     title: title,
     description: description,
+    duration: videofile.duration,
     owner: req.user._id,
     isPublished: true,
   });
@@ -63,7 +146,6 @@ const publishAVideo = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Error while storing in db ");
   }
 
-  
   return res
     .status(200)
     .json(
@@ -93,8 +175,11 @@ const updateVideo = asyncHandler(async (req, res) => {
   const { videoId } = req.params;
   //TODO: update video details like title, description, thumbnail
   const { title, description } = req.body;
+  console.log(title);
+  console.log(description);
+  console.log(req.file.path);
 
-  const thumbnailLocalpath = req.file?.videoFile[0].path;
+  const thumbnailLocalpath = req.file?.path;
 
   const thumbnailfile = await uploadOnCloudinary(thumbnailLocalpath);
 
@@ -145,6 +230,10 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
 
   video.isPublished = !video.isPublished;
   await video.save();
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Status updated Successfully"));
 });
 
 export {

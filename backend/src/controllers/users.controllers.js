@@ -3,6 +3,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import UploadOncloudinary from "../utils/cloudinary.js";
+import cloudinary from "cloudinary";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
@@ -262,7 +263,6 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 });
 
 const getCurrentUser = asyncHandler(async (req, res) => {
-
   return res
     .status(200)
     .json(new ApiResponse(200, req.user, "current user fetched successfully "));
@@ -291,16 +291,14 @@ const updateAccountDetails = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Account Details updated successfully "));
 });
 
-
-const deleteFromcloudinary = async(url)=>{
-  const publicId = url.split("/").pop().split(".")[0];
-  await cloudinary.uploader.destroy(publicId);
-}
-
-
-
-
-
+const deleteFromcloudinary = async (url) => {
+  try {
+    const publicId = url.split("/").pop().split(".")[0];
+    await cloudinary.uploader.destroy(publicId);
+  } catch (error) {
+    console.error("Error deleting from Cloudinary:", error);
+  }
+};
 
 const updateUserAvatar = asyncHandler(async (req, res) => {
   const avatarLocaPath = req.file?.path;
@@ -316,8 +314,8 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   }
 
   // Retrive the current user to get the old avatar Url
-  const user = await user.findById(req.user?._id);
-  if(!user){
+  const user = await User.findById(req.user?._id);
+  if (!user) {
     throw new ApiError(400, "User not found ");
   }
 
@@ -327,7 +325,7 @@ const updateUserAvatar = asyncHandler(async (req, res) => {
   await user.save();
 
   // Optionally delete the old avatar from cloudinary
-  if(oldAvatarUrl){
+  if (oldAvatarUrl) {
     await deleteFromcloudinary(oldAvatarUrl);
   }
 
@@ -376,17 +374,91 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, user, "Cover  updated successfully "));
 });
 
+// const getUserchannelProfile = asyncHandler(async (req, res) => {
+//   const { username } = req.params;
+
+//   if (!username?.trim()) {
+//     throw new ApiError(400, "username is missing");
+//   }
+
+//   const channel = await User.aggregate([
+//     {
+//       $match: {
+//         username: username?.toLowerCase(),
+//       },
+//     },
+//     {
+//       $lookup: {
+//         from: "subscriptions",
+//         localField: "_id",
+//         foreignField: "channel",
+//         as: "subscribers",
+//       },
+//     },
+//     {
+//       $lookup: {
+//         from: "subscriptions",
+//         localField: "_id",
+//         foreignField: "subscriber",
+//         as: "subscribedTo",
+//       },
+//     },
+//     {
+//       $addFields: {
+//         subscribersCount: { $size: "$subscribers" },
+//         channelsSubscribedToCount: { $size: "$subscribedTo" },
+//       },
+//     },
+//     {
+//       $addFields: {
+//         isSubscribed: {
+//           $cond: {
+//             if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+//             then: true,
+//             else: false,
+//           },
+//         },
+//       },
+//     },
+//     {
+//       $project: {
+//         fullName: 1,
+//         username: 1,
+//         subscribersCount: 1,
+//         channelsSubscribedToCount: 1,
+//         avatar: 1,
+//         coverimage: 1,
+//         email: 1,
+//         isSubscribed: 1,
+//       },
+//     },
+//   ]);
+
+//   console.log(channel);
+//   if (!channel?.length) {
+//     throw new ApiError(404, "channel does not exist");
+//   }
+
+//   return res
+//     .status(200)
+//     .json(
+//       new ApiResponse(200, channel[0], "User channel fetched successfully")
+//     );
+// });
+
+
+// follow test code 
 const getUserchannelProfile = asyncHandler(async (req, res) => {
   const { username } = req.params;
 
   if (!username?.trim()) {
-    throw new ApiError(400, "username is missing");
+    throw new ApiError(400, "Username is missing");
   }
 
   const channel = await User.aggregate([
     {
       $match: {
-        username: username?.toLowerCase(),
+        username: username.toLowerCase(),
       },
     },
     {
@@ -407,18 +479,14 @@ const getUserchannelProfile = asyncHandler(async (req, res) => {
     },
     {
       $addFields: {
-        subscribersCount: {
-          $size: "$subscribers",
-        },
-        channelsSubscribedToCount: {
-          $size: "$subscribedTo",
-        },
+        subscribersCount: { $size: "$subscribers" },
+        channelsSubscribedToCount: { $size: "$subscribedTo" },
         isSubscribed: {
           $cond: {
             if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+            then: true,
+            else: false,
           },
-          then: true,
-          else: false,
         },
       },
     },
@@ -431,19 +499,21 @@ const getUserchannelProfile = asyncHandler(async (req, res) => {
         avatar: 1,
         coverimage: 1,
         email: 1,
+        isSubscribed: 1,
       },
     },
   ]);
 
-  console.log(channel);
+  console.log("Channel query result:", channel);
+
   if (!channel?.length) {
-    throw new ApiError(404, "channel does not exists ");
+    throw new ApiError(404, "Channel does not exist");
   }
 
   return res
     .status(200)
     .json(
-      new ApiResponse(200, channel[0], "User channel feteched successfully")
+      new ApiResponse(200, channel[0], "User channel fetched successfully")
     );
 });
 
