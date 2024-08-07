@@ -3,9 +3,12 @@ import { Playlist } from "../models/playlist.model.js";
 import asyncHandler from "../utils/asyncHandler.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
-import {Video} from "../models/video.model.js";
+import { Video } from "../models/video.model.js";
+
 const createPlaylist = asyncHandler(async (req, res) => {
   const { name, description } = req.body;
+  // console.log("name:", name);
+  // console.log("description:", description);
   const userId = req.user._id;
   //TODO: create playlist
   // validate input
@@ -14,7 +17,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
   }
 
   // Create a new playlist
-  const playlist = new Playlist.create({
+  const playlist = await Playlist.create({
     name,
     description,
     owner: userId,
@@ -31,6 +34,7 @@ const createPlaylist = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, playlist, "playlist creted successfully"));
 });
 
+ 
 const getUserPlaylists = asyncHandler(async (req, res) => {
   const { userId } = req.params;
   //TODO: get user playlists
@@ -128,7 +132,7 @@ const addVideoToPlaylist = asyncHandler(async (req, res) => {
   // Return a success response
   return res
     .status(200)
-    .json(new ApiResponse(playlist, "Video added to playlist successfully"));
+    .json(new ApiResponse( 200 , playlist, "Video added to playlist successfully"));
 });
 
 const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
@@ -172,8 +176,31 @@ const removeVideoFromPlaylist = asyncHandler(async (req, res) => {
 });
 
 const deletePlaylist = asyncHandler(async (req, res) => {
-  const { playlistId } = req.params;
-  // TODO: delete playlist
+  // const { playlistId } = req.params;
+  // // TODO: delete playlist
+
+  // // Validate the playlistId
+  // if (!isValidObjectId(playlistId)) {
+  //   throw new ApiError(400, "Invalid Playlist ID");
+  // }
+
+  // // Find the playlist by id
+  // const playlist = await Playlist.findById(playlistId);
+  // if (!playlist) {
+  //   res.status(404);
+  //   throw new ApiError(404, "Playlist not found");
+  // }
+
+  // // Delete the playlist
+  // await playlist.remove();
+
+  // // Return a success response
+  // return res
+  //   .status(200)
+  //   .json(new ApiResponse(null, "Playlist deleted successfully"));
+
+  // update and fix issue
+const { playlistId } = req.params;
 
   // Validate the playlistId
   if (!isValidObjectId(playlistId)) {
@@ -188,17 +215,20 @@ const deletePlaylist = asyncHandler(async (req, res) => {
   }
 
   // Delete the playlist
-  await playlist.remove();
+  await playlist.deleteOne();
 
   // Return a success response
   return res
     .status(200)
-    .json(new ApiResponse(null, "Playlist deleted successfully"));
+    .json(new ApiResponse(200, {}, "Playlist deleted successfully"));
+
 });
 
 const updatePlaylist = asyncHandler(async (req, res) => {
   const { playlistId } = req.params;
   const { name, description } = req.body;
+  console.log(name);
+  console.log(description);
   //TODO: update playlist
 
   // Validate the playlistId
