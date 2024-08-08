@@ -108,7 +108,7 @@ const deleteTweet = asyncHandler(async (req, res) => {
     throw new ApiError(403, "You are not authorized to delete this tweet ");
   }
 
-  await tweet.remove();
+  await Tweet.findByIdAndDelete(tweetId);
 
   return res
     .status(200)
